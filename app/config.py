@@ -9,10 +9,15 @@ class Settings(BaseSettings):
 
     model_provider: str = "openai"
     model_name: str = "gpt-5-mini"
-
     openai_api_key: str | None = None
 
-    redis_url: str = "redis://localhost:6379/0"
+    operations_api_url: str = (
+        "http://localhost:8001"
+    )
+
+    redis_url: str = (
+        "redis://localhost:6379/0"
+    )
 
     postgres_url: str = (
         "postgresql://genai:genai@localhost:5432/genai"
@@ -20,7 +25,6 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
-        env_file_encoding="utf-8",
         extra="ignore",
     )
 

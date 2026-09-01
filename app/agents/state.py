@@ -1,4 +1,7 @@
-from typing import Literal, TypedDict
+from typing import Annotated, Literal, TypedDict
+
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
 
 
 Intent = Literal[
@@ -14,6 +17,11 @@ class AgentState(TypedDict, total=False):
 
     user_query: str
 
+    messages: Annotated[
+        list[BaseMessage],
+        add_messages,
+    ]
+
     intent: Intent
 
     classification_confidence: float
@@ -21,8 +29,6 @@ class AgentState(TypedDict, total=False):
     classification_reasoning: str
 
     retrieved_context: list[str]
-
-    tool_results: list[dict]
 
     draft_answer: str
 

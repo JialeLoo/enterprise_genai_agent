@@ -34,11 +34,17 @@ async def chat(request: ChatRequest):
     )
 
     result = await agent_graph.ainvoke(
-        {
-            "conversation_id": conversation_id,
-            "user_query": request.message,
-        }
-    )
+    {
+        "conversation_id":
+            conversation_id,
+
+        "user_query":
+            request.message,
+    },
+    config={
+        "recursion_limit": 10
+    },
+)
 
     return ChatResponse(
         conversation_id=conversation_id,
@@ -54,10 +60,16 @@ async def debug_chat(request: ChatRequest):
     )
 
     result = await agent_graph.ainvoke(
-        {
-            "conversation_id": conversation_id,
-            "user_query": request.message,
-        }
-    )
+    {
+        "conversation_id":
+            conversation_id,
+
+        "user_query":
+            request.message,
+    },
+    config={
+        "recursion_limit": 10
+    },
+)
 
     return result
