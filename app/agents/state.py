@@ -28,7 +28,7 @@ class AgentState(TypedDict, total=False):
 
     classification_reasoning: str
 
-    retrieved_context: list[str]
+    retrieved_documents: list[dict]
 
     draft_answer: str
 

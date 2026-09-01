@@ -32,6 +32,10 @@ from app.agents.nodes.operational_agent import (
 
 from app.tools import OPERATIONAL_TOOLS
 
+from app.agents.nodes.knowledge_agent import (
+    generate_knowledge_answer,
+)
+
 
 tool_node = ToolNode(
     OPERATIONAL_TOOLS
@@ -114,6 +118,11 @@ def build_graph():
     )
 
     builder.add_node(
+        "knowledge_answer",
+        generate_knowledge_answer,
+    )
+
+    builder.add_node(
         "tools",
         tool_node,
     )
@@ -140,7 +149,12 @@ def build_graph():
 
     builder.add_edge(
         "retrieve",
-        "respond",
+        "knowledge_answer",
+    )
+
+    builder.add_edge(
+        "knowledge_answer",
+        END,
     )
 
     builder.add_edge(

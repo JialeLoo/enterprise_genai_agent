@@ -9,6 +9,7 @@ class Settings(BaseSettings):
 
     model_provider: str = "openai"
     model_name: str = "gpt-5-mini"
+    embedding_model: str = "text-embedding-3-small"
     openai_api_key: str | None = None
 
     operations_api_url: str = (
