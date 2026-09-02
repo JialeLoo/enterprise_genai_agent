@@ -14,8 +14,8 @@ from app.agents.nodes.classify import (
     classify_intent,
 )
 
-from app.agents.nodes.retrieve import (
-    retrieve_knowledge,
+from app.agents.nodes.enterprise_agent import (
+    enterprise_agent,
 )
 
 from app.agents.nodes.general import (
@@ -26,27 +26,18 @@ from app.agents.nodes.respond import (
     generate_final_response,
 )
 
-from app.agents.nodes.operational_agent import (
-    operational_agent,
-)
-
-from app.tools import OPERATIONAL_TOOLS
-
-from app.agents.nodes.knowledge_agent import (
-    generate_knowledge_answer,
-)
+from app.tools import ENTERPRISE_TOOLS
 
 
 tool_node = ToolNode(
-    OPERATIONAL_TOOLS
+    ENTERPRISE_TOOLS
 )
 
 
 def route_by_intent(
     state: AgentState,
 ) -> Literal[
-    "retrieve",
-    "operational_agent",
+    "enterprise_agent",
     "general",
 ]:
 
@@ -58,18 +49,13 @@ def route_by_intent(
     if confidence < 0.65:
         return "general"
 
-    intent = state["intent"]
-
-    if intent == "knowledge_question":
-        return "retrieve"
-
-    if intent == "operational_query":
-        return "operational_agent"
+    if state["intent"] == "enterprise_query":
+        return "enterprise_agent"
 
     return "general"
 
 
-def route_operational_agent(
+def route_enterprise_agent(
     state: AgentState,
 ) -> Literal[
     "tools",
@@ -108,18 +94,8 @@ def build_graph():
     )
 
     builder.add_node(
-        "retrieve",
-        retrieve_knowledge,
-    )
-
-    builder.add_node(
-        "operational_agent",
-        operational_agent,
-    )
-
-    builder.add_node(
-        "knowledge_answer",
-        generate_knowledge_answer,
+        "enterprise_agent",
+        enterprise_agent,
     )
 
     builder.add_node(
@@ -147,29 +123,19 @@ def build_graph():
         route_by_intent,
     )
 
-    builder.add_edge(
-        "retrieve",
-        "knowledge_answer",
+    builder.add_conditional_edges(
+        "enterprise_agent",
+        route_enterprise_agent,
     )
 
     builder.add_edge(
-        "knowledge_answer",
-        END,
+        "tools",
+        "enterprise_agent",
     )
 
     builder.add_edge(
         "general",
         "respond",
-    )
-
-    builder.add_conditional_edges(
-        "operational_agent",
-        route_operational_agent,
-    )
-
-    builder.add_edge(
-        "tools",
-        "operational_agent",
     )
 
     builder.add_edge(

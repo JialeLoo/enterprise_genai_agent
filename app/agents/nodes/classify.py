@@ -11,40 +11,30 @@ logger = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT = """
-You are an intent classifier for an enterprise operations
-AI assistant.
+You are an intent classifier for an enterprise AI assistant.
 
-Classify the user's request into exactly one of these intents.
+Classify the user request into exactly one of these intents:
 
-knowledge_question:
-The user wants information from internal documentation,
-policies, procedures, runbooks, guidelines or knowledge bases.
+enterprise_query:
+The request requires internal enterprise knowledge or
+enterprise operational information.
 
 Examples:
 - What is the production access policy?
 - What is the rollback procedure?
-- Show me the incident response guideline.
-
-operational_query:
-The user wants information about live or operational systems
-such as deployments, incidents, logs, service health,
-application status or operational records.
-
-Examples:
 - Why did deployment PAY-2026-0812 fail?
-- What is the status of payment-service?
-- Show me the logs for this incident.
+- Show me payment-service logs.
+- Investigate this incident and tell me what our runbook says.
 
 general_question:
-The request does not require internal documentation or
-operational enterprise systems.
+The request does not require internal enterprise data.
 
 Examples:
 - Hello
 - What can you do?
 - Explain what an API is.
 
-Return only the structured classification.
+Return the structured classification only.
 """
 
 
