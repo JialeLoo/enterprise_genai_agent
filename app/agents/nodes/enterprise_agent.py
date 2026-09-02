@@ -49,31 +49,49 @@ async def enterprise_agent(
         ENTERPRISE_TOOLS
     )
 
-    messages = state.get(
-        "messages",
-        [],
+    history = list(
+        state.get("messages", [])
+    )
+
+    model_messages = [
+        SystemMessage(
+            content=SYSTEM_PROMPT
+        ),
+        *history,
+    ]
+
+    last_is_current_user = (
+        bool(history)
+        and isinstance(
+            history[-1],
+            HumanMessage,
+        )
+        and history[-1].content
+        == state["user_query"]
+    )
+
+    if not last_is_current_user:
+        model_messages.append(
+            HumanMessage(
+                content=state["user_query"]
+            )
+        )
+
+    response = await llm_with_tools.ainvoke(
+        model_messages
     )
 
     new_messages = []
 
-    if not messages:
-
-        new_messages = [
-            SystemMessage(
-                content=SYSTEM_PROMPT
-            ),
+    if not last_is_current_user:
+        new_messages.append(
             HumanMessage(
                 content=state["user_query"]
-            ),
-        ]
+            )
+        )
 
-        messages = new_messages
-
-    response = await llm_with_tools.ainvoke(
-        messages
-    )
+    new_messages.append(response)
 
     return {
-        "messages":
-            new_messages + [response]
+        "messages": new_messages
     }
