@@ -4,7 +4,7 @@ from langchain_core.messages import (
 )
 
 from app.agents.state import AgentState
-from app.llm.factory import get_chat_model
+from app.llm.factory import get_agent_model
 from app.tools import ENTERPRISE_TOOLS
 
 
@@ -43,7 +43,7 @@ async def enterprise_agent(
     state: AgentState,
 ) -> dict:
 
-    llm = get_chat_model()
+    llm = get_agent_model()
 
     llm_with_tools = llm.bind_tools(
         ENTERPRISE_TOOLS

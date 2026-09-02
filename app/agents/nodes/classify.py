@@ -3,7 +3,9 @@ import logging
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agents.state import AgentState
-from app.llm.factory import get_chat_model
+from app.llm.factory import (
+    get_classifier_model,
+)
 from app.llm.schemas import RouteDecision
 
 
@@ -46,7 +48,7 @@ async def classify_intent(
 
     try:
 
-        llm = get_chat_model()
+        llm = get_classifier_model()
 
         structured_llm = llm.with_structured_output(
             RouteDecision

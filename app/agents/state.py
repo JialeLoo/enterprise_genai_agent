@@ -26,3 +26,9 @@ class AgentState(TypedDict, total=False):
 
     final_answer: str
     error: str | None
+
+    classifier_provider: str
+    classifier_model: str
+
+    agent_provider: str
+    agent_model: str
