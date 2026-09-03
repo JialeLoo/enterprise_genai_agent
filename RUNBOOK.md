@@ -125,7 +125,7 @@ If the knowledge table is empty:
 
 ``` bash
 docker compose exec genai-api \
-  python -m scripts.ingest_knowledge
+  python -m ingestion.ingest_knowledge
 ```
 
 Then verify:

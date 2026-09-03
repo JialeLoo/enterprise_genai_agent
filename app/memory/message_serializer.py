@@ -1,91 +1,41 @@
-from langchain_core.messages import (
-    AIMessage,
-    BaseMessage,
-    HumanMessage,
-    ToolMessage,
+from langchain_core.messages import BaseMessage
+from langchain_core.messages.base import (
+    message_to_dict,
+    messages_from_dict,
 )
 
 
 def serialize_messages(
     messages: list[BaseMessage],
 ) -> list[dict]:
+    # LangChain's canonical representation retains tool calls, message IDs and
+    # provider metadata. Keeping the full AI tool call is essential because a
+    # later ToolMessage refers to it by ID when a conversation is restored.
+    return [message_to_dict(message) for message in messages]
 
-    result = []
-
-    for message in messages:
-
-        if isinstance(
-            message,
-            HumanMessage,
-        ):
-            result.append(
-                {
-                    "type": "human",
-                    "content":
-                        message.content,
-                }
-            )
-
-        elif isinstance(
-            message,
-            AIMessage,
-        ):
-            result.append(
-                {
-                    "type": "ai",
-                    "content":
-                        message.content,
-                }
-            )
-
-        elif isinstance(
-            message,
-            ToolMessage,
-        ):
-            result.append(
-                {
-                    "type": "tool",
-                    "content":
-                        message.content,
-                    "tool_call_id":
-                        message.tool_call_id,
-                }
-            )
-
-    return result
 
 def deserialize_messages(
     data: list[dict],
 ) -> list[BaseMessage]:
+    if not data:
+        return []
 
-    messages = []
+    # Existing Redis conversations used a small legacy shape. Supporting it
+    # lets deployments upgrade without first flushing all conversation keys.
+    if "data" not in data[0]:
+        data = [
+            {
+                "type": item["type"],
+                "data": {
+                    "content": item["content"],
+                    **(
+                        {"tool_call_id": item["tool_call_id"]}
+                        if item["type"] == "tool"
+                        else {}
+                    ),
+                },
+            }
+            for item in data
+        ]
 
-    for item in data:
-
-        message_type = item["type"]
-
-        if message_type == "human":
-            messages.append(
-                HumanMessage(
-                    content=item["content"]
-                )
-            )
-
-        elif message_type == "ai":
-            messages.append(
-                AIMessage(
-                    content=item["content"]
-                )
-            )
-
-        elif message_type == "tool":
-            messages.append(
-                ToolMessage(
-                    content=item["content"],
-                    tool_call_id=item[
-                        "tool_call_id"
-                    ],
-                )
-            )
-
-    return messages
+    return messages_from_dict(data)

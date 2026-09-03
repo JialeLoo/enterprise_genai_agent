@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     agent_provider: str = "openai_compatible"
     agent_model: str = "qwen3:4b"
 
+    # Generation and embeddings can evolve independently (for example, a
+    # local chat model with hosted embeddings), so they have separate providers.
+    embedding_provider: str = "openai"
+
     local_model_base_url: str = (
         "http://localhost:11434/v1"
     )
@@ -54,4 +58,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    # Settings are immutable for the lifetime of this process in normal use;
+    # caching avoids reparsing the environment for every request and tool call.
     return Settings()

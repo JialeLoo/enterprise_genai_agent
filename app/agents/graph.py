@@ -33,6 +33,8 @@ tool_node = ToolNode(
     ENTERPRISE_TOOLS
 )
 
+MIN_ENTERPRISE_CONFIDENCE = 0.65
+
 
 def route_by_intent(
     state: AgentState,
@@ -46,7 +48,9 @@ def route_by_intent(
         0.0,
     )
 
-    if confidence < 0.65:
+    # Uncertain classifications fail closed: the general path cannot access
+    # internal tools, whereas the enterprise path can.
+    if confidence < MIN_ENTERPRISE_CONFIDENCE:
         return "general"
 
     if state["intent"] == "enterprise_query":
@@ -72,6 +76,8 @@ def route_enterprise_agent(
 
     last_message = messages[-1]
 
+    # ToolNode executes requested calls and loops the results back to the model;
+    # an AI message without calls is ready for final-response extraction.
     if getattr(
         last_message,
         "tool_calls",

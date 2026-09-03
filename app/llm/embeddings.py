@@ -9,7 +9,7 @@ from app.config import get_settings
 def get_embedding_model():
     settings = get_settings()
 
-    if settings.model_provider == "openai":
+    if settings.embedding_provider == "openai":
 
         if not settings.openai_api_key:
             raise ValueError(
@@ -23,5 +23,5 @@ def get_embedding_model():
 
     raise ValueError(
         f"Unsupported embedding provider: "
-        f"{settings.model_provider}"
+        f"{settings.embedding_provider}"
     )

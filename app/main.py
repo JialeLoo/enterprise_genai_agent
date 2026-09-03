@@ -37,6 +37,57 @@ app = FastAPI(
 )
 
 
+async def run_agent_chat(
+    request_body: ChatRequest,
+    *,
+    run_name: str,
+) -> tuple[str, dict]:
+    """Run and persist one conversation turn for either chat endpoint."""
+    conversation_id = (
+        request_body.conversation_id
+        or str(uuid.uuid4())
+    )
+
+    stored_messages = await load_conversation(
+        conversation_id
+    )
+    messages = deserialize_messages(stored_messages)
+
+    # A fresh callback per graph invocation keeps traces scoped to one request.
+    langfuse_handler = get_langfuse_handler()
+    result = await agent_graph.ainvoke(
+        {
+            "conversation_id": conversation_id,
+            "user_query": request_body.message,
+            "messages": messages,
+        },
+        config={
+            # Bounds the model -> tools -> model loop if a model repeatedly
+            # requests tools without producing a final answer.
+            "recursion_limit": 10,
+            "callbacks": [langfuse_handler],
+            "run_name": run_name,
+            "metadata": {
+                "langfuse_session_id": conversation_id,
+                "environment": settings.environment,
+                "classifier_provider": settings.classifier_provider,
+                "classifier_model": settings.classifier_model,
+                "agent_provider": settings.agent_provider,
+                "agent_model": settings.agent_model,
+                "prompt_version": ENTERPRISE_PROMPT_VERSION,
+            },
+        },
+    )
+
+    # Persist the graph's merged state, including tool-call messages needed to
+    # give the next request a valid conversational transcript.
+    await save_conversation(
+        conversation_id,
+        serialize_messages(result.get("messages", [])),
+    )
+    return conversation_id, result
+
+
 @app.get("/health")
 async def health():
     return {
@@ -53,10 +104,8 @@ async def chat(
     request_body: ChatRequest,
     request: Request,
 ):
-    # --------------------------------------------------
-    # 1. Identify caller for basic rate limiting
-    # --------------------------------------------------
-
+    # IP-based limiting is intentionally basic for this POC. Production should
+    # key this by authenticated user/tenant and handle trusted proxy headers.
     client_id = (
         request.client.host
         if request.client
@@ -64,109 +113,10 @@ async def chat(
     )
 
     await enforce_rate_limit(client_id)
-
-    # --------------------------------------------------
-    # 2. Resolve conversation ID
-    # --------------------------------------------------
-
-    conversation_id = (
-        request_body.conversation_id
-        or str(uuid.uuid4())
+    conversation_id, result = await run_agent_chat(
+        request_body,
+        run_name="enterprise-genai-chat",
     )
-
-    # --------------------------------------------------
-    # 3. Load previous conversation from Redis
-    # --------------------------------------------------
-
-    stored_messages = await load_conversation(
-        conversation_id
-    )
-
-    messages = deserialize_messages(
-        stored_messages
-    )
-
-    # --------------------------------------------------
-    # 4. Create Langfuse callback handler
-    # --------------------------------------------------
-
-    langfuse_handler = (
-        get_langfuse_handler()
-    )
-
-    # --------------------------------------------------
-    # 5. Run LangGraph
-    # --------------------------------------------------
-
-    result = await agent_graph.ainvoke(
-        {
-            "conversation_id":
-                conversation_id,
-
-            "user_query":
-                request_body.message,
-
-            "messages":
-                messages,
-        },
-        config={
-            "recursion_limit": 10,
-
-            "callbacks": [
-                langfuse_handler
-            ],
-
-            "run_name":
-                "enterprise-genai-chat",
-
-            "metadata": {
-                "langfuse_session_id":
-                    conversation_id,
-
-                "environment":
-                    settings.environment,
-
-                "classifier_provider":
-                    settings.classifier_provider,
-
-                "classifier_model":
-                    settings.classifier_model,
-
-                "agent_provider":
-                    settings.agent_provider,
-
-                "agent_model":
-                    settings.agent_model,
-
-                "prompt_version":
-                    ENTERPRISE_PROMPT_VERSION,
-            },
-        },
-    )
-
-    # --------------------------------------------------
-    # 6. Persist updated conversation into Redis
-    # --------------------------------------------------
-
-    result_messages = result.get(
-        "messages",
-        [],
-    )
-
-    serialized_messages = (
-        serialize_messages(
-            result_messages
-        )
-    )
-
-    await save_conversation(
-        conversation_id,
-        serialized_messages,
-    )
-
-    # --------------------------------------------------
-    # 7. Return API response
-    # --------------------------------------------------
 
     return ChatResponse(
         conversation_id=conversation_id,
@@ -178,83 +128,9 @@ async def chat(
 async def debug_chat(
     request_body: ChatRequest,
 ):
-    conversation_id = (
-        request_body.conversation_id
-        or str(uuid.uuid4())
-    )
-
-    stored_messages = await load_conversation(
-        conversation_id
-    )
-
-    messages = deserialize_messages(
-        stored_messages
-    )
-
-    langfuse_handler = (
-        get_langfuse_handler()
-    )
-
-    result = await agent_graph.ainvoke(
-        {
-            "conversation_id":
-                conversation_id,
-
-            "user_query":
-                request_body.message,
-
-            "messages":
-                messages,
-        },
-        config={
-            "recursion_limit": 10,
-
-            "callbacks": [
-                langfuse_handler
-            ],
-
-            "run_name":
-                "enterprise-genai-debug",
-
-            "metadata": {
-                "langfuse_session_id":
-                    conversation_id,
-
-                "environment":
-                    settings.environment,
-
-                "classifier_provider":
-                    settings.classifier_provider,
-
-                "classifier_model":
-                    settings.classifier_model,
-
-                "agent_provider":
-                    settings.agent_provider,
-
-                "agent_model":
-                    settings.agent_model,
-
-                "prompt_version":
-                    "enterprise-agent-v1",
-            },
-        },
-    )
-
-    result_messages = result.get(
-        "messages",
-        [],
-    )
-
-    serialized_messages = (
-        serialize_messages(
-            result_messages
-        )
-    )
-
-    await save_conversation(
-        conversation_id,
-        serialized_messages,
+    _, result = await run_agent_chat(
+        request_body,
+        run_name="enterprise-genai-debug",
     )
 
     return result

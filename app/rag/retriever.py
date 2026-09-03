@@ -1,3 +1,5 @@
+import asyncio
+
 from app.llm.embeddings import (
     get_embedding_model,
 )
@@ -23,7 +25,10 @@ async def retrieve_documents(
         )
     )
 
-    results = search_chunks(
+    # psycopg is used synchronously in this POC. Run it in a worker thread so
+    # one vector lookup does not block unrelated FastAPI requests.
+    results = await asyncio.to_thread(
+        search_chunks,
         query_embedding=query_embedding,
         limit=top_k,
     )
