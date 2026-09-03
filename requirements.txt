@@ -10,6 +10,7 @@ structlog
 langchain
 langchain-openai
 langgraph
+langfuse
 
 redis
 psycopg[binary]

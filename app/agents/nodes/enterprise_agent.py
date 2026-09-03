@@ -7,6 +7,9 @@ from app.agents.state import AgentState
 from app.llm.factory import get_agent_model
 from app.tools import ENTERPRISE_TOOLS
 
+ENTERPRISE_PROMPT_VERSION = (
+    "enterprise-agent-v1"
+)
 
 SYSTEM_PROMPT = """
 You are an enterprise AI assistant.

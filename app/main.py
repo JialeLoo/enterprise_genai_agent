@@ -12,11 +12,24 @@ from app.memory.message_serializer import (
     deserialize_messages,
     serialize_messages,
 )
-from app.schemas import ChatRequest, ChatResponse
-from app.security.rate_limit import enforce_rate_limit
+from app.observability.langfuse import (
+    get_langfuse_handler,
+)
+from app.schemas import (
+    ChatRequest,
+    ChatResponse,
+)
+from app.security.rate_limit import (
+    enforce_rate_limit,
+)
+
+from app.agents.nodes.enterprise_agent import (
+    ENTERPRISE_PROMPT_VERSION,
+)
 
 
 settings = get_settings()
+
 
 app = FastAPI(
     title=settings.app_name,
@@ -40,23 +53,31 @@ async def chat(
     request_body: ChatRequest,
     request: Request,
 ):
-    # 1. Identify the caller for rate limiting
+    # --------------------------------------------------
+    # 1. Identify caller for basic rate limiting
+    # --------------------------------------------------
+
     client_id = (
         request.client.host
         if request.client
         else "unknown"
     )
 
-    # 2. Check Redis rate limit
     await enforce_rate_limit(client_id)
 
-    # 3. Reuse conversation ID or create a new one
+    # --------------------------------------------------
+    # 2. Resolve conversation ID
+    # --------------------------------------------------
+
     conversation_id = (
         request_body.conversation_id
         or str(uuid.uuid4())
     )
 
-    # 4. Load previous conversation from Redis
+    # --------------------------------------------------
+    # 3. Load previous conversation from Redis
+    # --------------------------------------------------
+
     stored_messages = await load_conversation(
         conversation_id
     )
@@ -65,37 +86,175 @@ async def chat(
         stored_messages
     )
 
-    # 5. Start LangGraph with restored history
+    # --------------------------------------------------
+    # 4. Create Langfuse callback handler
+    # --------------------------------------------------
+
+    langfuse_handler = (
+        get_langfuse_handler()
+    )
+
+    # --------------------------------------------------
+    # 5. Run LangGraph
+    # --------------------------------------------------
+
     result = await agent_graph.ainvoke(
         {
-            "conversation_id": conversation_id,
-            "user_query": request_body.message,
-            "messages": messages,
+            "conversation_id":
+                conversation_id,
+
+            "user_query":
+                request_body.message,
+
+            "messages":
+                messages,
         },
         config={
             "recursion_limit": 10,
+
+            "callbacks": [
+                langfuse_handler
+            ],
+
+            "run_name":
+                "enterprise-genai-chat",
+
+            "metadata": {
+                "langfuse_session_id":
+                    conversation_id,
+
+                "environment":
+                    settings.environment,
+
+                "classifier_provider":
+                    settings.classifier_provider,
+
+                "classifier_model":
+                    settings.classifier_model,
+
+                "agent_provider":
+                    settings.agent_provider,
+
+                "agent_model":
+                    settings.agent_model,
+
+                "prompt_version":
+                    ENTERPRISE_PROMPT_VERSION,
+            },
         },
     )
 
-    # 6. Get updated graph messages
+    # --------------------------------------------------
+    # 6. Persist updated conversation into Redis
+    # --------------------------------------------------
+
     result_messages = result.get(
         "messages",
         [],
     )
 
-    # 7. Convert LangChain messages into JSON
-    serialized_messages = serialize_messages(
-        result_messages
+    serialized_messages = (
+        serialize_messages(
+            result_messages
+        )
     )
 
-    # 8. Save updated conversation back to Redis
     await save_conversation(
         conversation_id,
         serialized_messages,
     )
 
-    # 9. Return only the final answer to API caller
+    # --------------------------------------------------
+    # 7. Return API response
+    # --------------------------------------------------
+
     return ChatResponse(
         conversation_id=conversation_id,
         answer=result["final_answer"],
     )
+
+
+@app.post("/api/v1/debug/chat")
+async def debug_chat(
+    request_body: ChatRequest,
+):
+    conversation_id = (
+        request_body.conversation_id
+        or str(uuid.uuid4())
+    )
+
+    stored_messages = await load_conversation(
+        conversation_id
+    )
+
+    messages = deserialize_messages(
+        stored_messages
+    )
+
+    langfuse_handler = (
+        get_langfuse_handler()
+    )
+
+    result = await agent_graph.ainvoke(
+        {
+            "conversation_id":
+                conversation_id,
+
+            "user_query":
+                request_body.message,
+
+            "messages":
+                messages,
+        },
+        config={
+            "recursion_limit": 10,
+
+            "callbacks": [
+                langfuse_handler
+            ],
+
+            "run_name":
+                "enterprise-genai-debug",
+
+            "metadata": {
+                "langfuse_session_id":
+                    conversation_id,
+
+                "environment":
+                    settings.environment,
+
+                "classifier_provider":
+                    settings.classifier_provider,
+
+                "classifier_model":
+                    settings.classifier_model,
+
+                "agent_provider":
+                    settings.agent_provider,
+
+                "agent_model":
+                    settings.agent_model,
+
+                "prompt_version":
+                    "enterprise-agent-v1",
+            },
+        },
+    )
+
+    result_messages = result.get(
+        "messages",
+        [],
+    )
+
+    serialized_messages = (
+        serialize_messages(
+            result_messages
+        )
+    )
+
+    await save_conversation(
+        conversation_id,
+        serialized_messages,
+    )
+
+    return result

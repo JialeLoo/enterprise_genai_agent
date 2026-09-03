@@ -1,0 +1,66 @@
+[
+  {
+    "name": "deployment_failure_lookup",
+    "input": "Why did deployment PAY-2026-0812 fail?",
+    "expected_tools": [
+      "get_deployment"
+    ],
+    "expected_facts": [
+      "database connection timeout"
+    ]
+  },
+  {
+    "name": "service_logs_lookup",
+    "input": "Show me recent errors for payment-service.",
+    "expected_tools": [
+      "get_service_logs"
+    ],
+    "expected_facts": [
+      "database"
+    ]
+  },
+  {
+    "name": "production_access_policy",
+    "input": "What approvals are required before accessing production?",
+    "expected_tools": [
+      "search_knowledge"
+    ],
+    "expected_facts": [
+      "engineering manager",
+      "production owner"
+    ]
+  },
+  {
+    "name": "rollback_policy",
+    "input": "What should we do when a production deployment causes significant degradation?",
+    "expected_tools": [
+      "search_knowledge"
+    ],
+    "expected_facts": [
+      "rollback",
+      "previous stable version"
+    ]
+  },
+  {
+    "name": "hybrid_deployment_investigation",
+    "input": "Investigate deployment PAY-2026-0812 and tell me what the rollback runbook recommends.",
+    "expected_tools": [
+      "get_deployment",
+      "search_knowledge"
+    ],
+    "expected_facts": [
+      "database connection timeout",
+      "previous stable version"
+    ]
+  },
+  {
+    "name": "incident_lookup",
+    "input": "What incidents currently affect payment-service?",
+    "expected_tools": [
+      "get_incidents"
+    ],
+    "expected_facts": [
+      "INC-1042"
+    ]
+  }
+]
