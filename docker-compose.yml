@@ -1,4 +1,5 @@
 services:
+
   postgres:
     image: pgvector/pgvector:pg16
     container_name: genai-postgres
@@ -15,6 +16,17 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U genai -d genai"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+
   redis:
     image: redis:7-alpine
     container_name: genai-redis
@@ -24,6 +36,81 @@ services:
 
     volumes:
       - redis_data:/data
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+  mock-enterprise-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: genai-mock-enterprise-api
+
+    command:
+      [
+        "uvicorn",
+        "mock_enterprise.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8001"
+      ]
+
+    ports:
+      - "8001:8001"
+
+
+  genai-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: genai-api
+
+    env_file:
+      - .env
+
+    environment:
+      POSTGRES_URL: postgresql://genai:genai@postgres:5432/genai
+      REDIS_URL: redis://redis:6379/0
+      OPERATIONS_API_URL: http://mock-enterprise-api:8001
+      LOCAL_MODEL_BASE_URL: http://host.docker.internal:11434/v1
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+      mock-enterprise-api:
+        condition: service_started
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 
 volumes:
   postgres_data:
